@@ -8,7 +8,10 @@
   <body>
     <h1 id="heading"></h1>
     <script>
-      fetch("/message")
+      const params = new URLSearchParams(window.location.search);
+      const query = params.toString();
+      const url = query ? `/message?${query}` : "/message";
+      fetch(url)
         .then((resp) => resp.text())
         .then((text) => {
           const h1 = document.getElementById("heading");
