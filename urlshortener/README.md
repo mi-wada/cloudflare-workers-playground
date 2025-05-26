@@ -39,6 +39,20 @@ With fixing issues:
 npm run lint:fix
 ```
 
+### DB Migration
+
+Local:
+
+```shell
+npm run db:migrate:local
+```
+
+Production:
+
+```shell
+npm run db:migrate:prod
+```
+
 ## Requirements
 
 このアプリケーションは、URLを短縮するためのものです。以下の要件を満たす必要があります。
@@ -92,3 +106,20 @@ HTTP/1.1 200 OK
 キャッシュやRate Limitの実装には Cloudflare Workers KV を使用します。これにより、短縮URLの生成やリダイレクトの高速化が可能になります。
 
 WebフレームワークとしてHonoを利用します。
+
+## ToDo
+
+- [x] D1データベースのセットアップ
+- [x] D1用のテーブル設計・DDL作成
+- [ ] Cloudflare Workers KVのセットアップ
+- [ ] HonoでAPIルーティングの実装
+- [ ] POST /api/shorten の実装
+- [ ] GET /:short_url の実装
+- [ ] Rate Limitの実装（IPごとに1日100回まで）
+- [ ] レスポンスヘッダーにRate Limit情報を付与
+- [ ] URL長4096文字制限のバリデーション
+- [ ] 同じURLに対して同じ短縮URLを返すロジック
+- [ ] 308 Permanent Redirectの実装
+- [ ] 存在しない短縮URLへの404対応
+- [ ] テスト実装
+- [ ] Lint対応
