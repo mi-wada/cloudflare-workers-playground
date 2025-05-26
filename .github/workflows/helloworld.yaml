@@ -27,3 +27,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Currently this action install old `wrangler@3.90.0`, so this is a workaround.
+          # details: https://github.com/cloudflare/wrangler-action/issues/366
+          preCommands: |
+            npm install wrangler@latest
