@@ -16,3 +16,9 @@ npm run deploy
 ```shell
 npm run dev
 ```
+
+## Run tests
+
+```shell
+npm run test
+```

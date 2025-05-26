@@ -4,7 +4,7 @@ const app = new Hono<{ Bindings: CloudflareBindings }>();
 
 app.get("/message", (c) => {
   const name = c.req.query("name") || undefined;
-  const message = generateGreeting(name);
+  const message = greeting(name);
   return c.text(message);
 });
 
@@ -14,7 +14,7 @@ app.get("/message", (c) => {
  * @param name - The name of the person to greet. If not provided, "Anonymous" will be used.
  * @returns A greeting message string.
  */
-const generateGreeting = (name: string = "Anonymous"): string => {
+export const greeting = (name: string = "Anonymous"): string => {
   return `Hello, ${name}!`;
 };
 
