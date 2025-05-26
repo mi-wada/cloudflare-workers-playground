@@ -31,3 +31,4 @@ jobs:
           # details: https://github.com/cloudflare/wrangler-action/issues/366
           preCommands: |
             npm install wrangler@latest
+            ls -la
