@@ -19,17 +19,15 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Debug
-        run: |
-          ls -la
       - name: Build & Deploy Worker
         uses: cloudflare/wrangler-action@v3.14.1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # If workingDirectory is empty, defaults.run.working-directory is ignored and the root is used.
+          # So, it must be specified here as well.
           workingDirectory: helloworld
-          # Currently this action install old `wrangler@3.90.0`, so this is a workaround.
-          # details: https://github.com/cloudflare/wrangler-action/issues/366
+          # This action currently installs an old `wrangler@3.90.0`, so this is a workaround.
+          # Details: https://github.com/cloudflare/wrangler-action/issues/366
           preCommands: |
             npm install wrangler@latest
-            ls -la
