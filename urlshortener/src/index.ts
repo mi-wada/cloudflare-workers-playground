@@ -2,20 +2,14 @@ import { Hono } from "hono";
 
 const app = new Hono<{ Bindings: CloudflareBindings }>();
 
-app.get("/message", (c) => {
-	const name = c.req.query("name") || undefined;
-	const message = greeting(name);
-	return c.text(message);
+app.post("/api/shorten", async (c) => {
+	// TODO: 実装
+	return c.json({ message: "Not implemented yet" }, 501);
 });
 
-/**
- * Generates a greeting message for the provided name.
- *
- * @param name - The name of the person to greet. If not provided, "Anonymous" will be used.
- * @returns A greeting message string.
- */
-export const greeting = (name = "Anonymous"): string => {
-	return `Hello, ${name}!`;
-};
+app.get(":short_url", async (c) => {
+	// TODO: 実装
+	return c.json({ message: "Not implemented yet" }, 501);
+});
 
 export default app;

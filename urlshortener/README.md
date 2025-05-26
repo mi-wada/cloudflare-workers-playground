@@ -111,15 +111,15 @@ WebフレームワークとしてHonoを利用します。
 
 - [x] D1データベースのセットアップ
 - [x] D1用のテーブル設計・DDL作成
-- [ ] Cloudflare Workers KVのセットアップ
-- [ ] HonoでAPIルーティングの実装
+- [x] HonoでAPIルーティングの実装
 - [ ] POST /api/shorten の実装
 - [ ] GET /:short_url の実装
-- [ ] Rate Limitの実装（IPごとに1日100回まで）
-- [ ] レスポンスヘッダーにRate Limit情報を付与
 - [ ] URL長4096文字制限のバリデーション
 - [ ] 同じURLに対して同じ短縮URLを返すロジック
 - [ ] 308 Permanent Redirectの実装
 - [ ] 存在しない短縮URLへの404対応
+- [ ] Cloudflare Workers KVのセットアップ
+- [ ] Rate Limitの実装（IPごとに1日100回まで）
+- [ ] レスポンスヘッダーにRate Limit情報を付与
 - [ ] テスト実装
 - [ ] Lint対応
