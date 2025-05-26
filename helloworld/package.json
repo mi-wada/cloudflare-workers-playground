@@ -12,5 +12,8 @@
   "devDependencies": {
     "vitest": "3.1.4",
     "wrangler": "4.16.1"
+  },
+  "engines": {
+    "node": "23.11.0"
   }
 }
