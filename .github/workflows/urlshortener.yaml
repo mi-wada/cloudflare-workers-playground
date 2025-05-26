@@ -1,0 +1,59 @@
+name: For /urlshortener
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/urlshortener.yaml'
+      - 'urlshortener/**'
+defaults:
+  run:
+    shell: bash
+    working-directory: urlshortener
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build & Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # If workingDirectory is empty, defaults.run.working-directory is ignored and the root is used.
+          # So, it must be specified here as well.
+          workingDirectory: urlshortener
+          # This action currently installs an old `wrangler@3.90.0`, so this is a workaround.
+          # Details: https://github.com/cloudflare/wrangler-action/issues/366
+          preCommands: |
+            npm install wrangler@latest
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: urlshortener/package.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Run tests
+        run: npm run test
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: urlshortener/package.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Run linter
+        run: npm run lint
