@@ -6,6 +6,89 @@
     <title>URL Shortener</title>
   </head>
   <body>
-    <h1 id="heading">URL Shortener</h1>
+    <header>
+      <h1 id="heading">URL Shortener</h1>
+    </header>
+    <main>
+      <section aria-labelledby="shorten-url-form-title">
+        <h2 id="shorten-url-form-title">Create Short URL</h2>
+        <form method="post" action="/api/shorten">
+          <label for="original-url">URL to shorten</label>
+          <input
+            type="url"
+            id="original-url"
+            name="url"
+            required
+            placeholder="https://example.com"
+            autocomplete="off"
+          />
+          <button type="submit">Shorten</button>
+        </form>
+      </section>
+      <section aria-labelledby="short-url-result-title">
+        <h2 id="short-url-result-title">Result</h2>
+        <div id="result-description">
+          The shortened URL will appear here after you press Shorten.
+        </div>
+        <div>
+          <output id="short-url-result" aria-live="polite"></output>
+          <button type="button" id="copy-short-url" disabled>Copy</button>
+        </div>
+      </section>
+    </main>
+    <footer>
+      <section aria-labelledby="references-title">
+        <h2 id="references-title">References</h2>
+        <nav aria-label="Related Links">
+          <ul>
+            <li>
+              <a href="https://github.com/mi-wada/cloudflare-workers-playground"
+                >GitHub Repository</a
+              >
+            </li>
+          </ul>
+        </nav>
+      </section>
+    </footer>
+    <script>
+      document
+        .querySelector("form")
+        .addEventListener("submit", async function (event) {
+          event.preventDefault();
+          const url = document.getElementById("original-url").value;
+          const output = document.getElementById("short-url-result");
+          const copyBtn = document.getElementById("copy-short-url");
+          const desc = document.getElementById("result-description");
+          output.textContent = "";
+          copyBtn.disabled = true;
+          try {
+            const res = await fetch("/api/shorten", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url }),
+            });
+            if (!res.ok) {
+              output.textContent = "Failed to shorten URL.";
+              desc.textContent = "";
+              return;
+            }
+            const data = await res.json();
+            if (data.short_url) {
+              output.textContent = data.short_url;
+              copyBtn.disabled = false;
+              copyBtn.onclick = function () {
+                navigator.clipboard.writeText(data.short_url);
+              };
+              desc.textContent = "";
+            } else {
+              output.textContent = "Failed to shorten URL.";
+              desc.textContent = "";
+            }
+          } catch (e) {
+            output.textContent = "An error occurred.";
+            desc.textContent = "";
+          }
+        });
+    </script>
   </body>
 </html>
