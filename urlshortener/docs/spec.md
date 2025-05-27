@@ -19,6 +19,27 @@
     }
     ```
 
+## 共通エラー仕様
+
+APIのエラーレスポンスは以下の型・コードを共通で利用します。
+
+### 型
+
+```jsonc
+{
+  "message": string, // エラー内容
+  "code": "JSON_INVALID" | "URL_REQUIRED" | "URL_TOO_LONG" | "URL_INVALID_FORMAT" // エラーコード
+}
+```
+
+
+### エラーコード一覧
+
+- `JSON_INVALID`: リクエストボディが不正なJSON
+- `URL_REQUIRED`: urlフィールドが必須
+- `URL_TOO_LONG`: urlが4096文字を超過
+- `URL_INVALID_FORMAT`: urlが不正な形式
+
 ### POST /api/shorten
 
 以下がリクエストの例:
