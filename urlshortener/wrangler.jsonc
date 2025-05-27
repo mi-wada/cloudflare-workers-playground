@@ -20,6 +20,13 @@
 			"database_name": "urlshortener",
 			"database_id": "98807a05-8503-4b6c-aaa4-733eadac294e"
 		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "KV",
+			"id": "5247bac3733b4c1b9f20ec27b7505de0",
+			"preview_id": "32df0ac5021a4d7f8dea020f68985e94"
+		}
 	]
 	/**
 	 * Smart Placement

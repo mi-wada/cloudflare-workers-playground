@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 
-// 型定義
 export type ErrorCode =
 	| "JSON_INVALID"
 	| "URL_REQUIRED"
@@ -22,7 +21,7 @@ export type URLTable = {
 	created_at: string;
 };
 
-// エラーレスポンス定数
+// Error response constants
 const errorResponses: Record<ErrorCode, ErrorResponse> = {
 	JSON_INVALID: { message: "Invalid JSON", code: "JSON_INVALID" },
 	URL_REQUIRED: { message: "'url' is required", code: "URL_REQUIRED" },
@@ -33,26 +32,68 @@ const errorResponses: Record<ErrorCode, ErrorResponse> = {
 	},
 };
 
-// ランダムな短縮コード生成
-export function randomCode(len = 6): string {
+// Generate a random short code
+export function randomCode(length = 6): string {
 	const chars =
 		"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 	return Array.from(
-		{ length: len },
+		{ length },
 		() => chars[Math.floor(Math.random() * chars.length)],
 	).join("");
 }
 
-// ベースURL生成
+// Generate base URL from request URL
 function getBaseUrl(reqUrl: string): string {
 	return reqUrl.split("/api/shorten")[0].replace(/\/$/, "");
 }
 
-// Honoアプリケーション
+// Rate limit middleware
+import type { Context, Next } from "hono";
+function rateLimit({ limit = 10, windowSec = 86400 } = {}) {
+	return async (c: Context<{ Bindings: CloudflareBindings }>, next: Next) => {
+		const ip =
+			c.req.header("CF-Connecting-IP") ||
+			c.req.header("x-forwarded-for") ||
+			"unknown";
+		const key = `rl:${ip}`;
+		const kv = c.env.KV;
+		const now = Math.floor(Date.now() / 1000);
+
+		let data = (await kv.get(key, { type: "json" })) as {
+			count: number;
+			reset: number;
+		} | null;
+		if (!data || now > data.reset) {
+			data = { count: 0, reset: now + windowSec };
+		}
+		if (data.count >= limit) {
+			setRateLimitHeaders(c, limit, 0, data.reset);
+			return c.json({ message: "Rate limit exceeded" }, 429);
+		}
+		data.count++;
+		await kv.put(key, JSON.stringify(data), { expiration: data.reset });
+		setRateLimitHeaders(c, limit, limit - data.count, data.reset);
+		return next();
+	};
+}
+
+// Set rate limit headers
+function setRateLimitHeaders(
+	c: Context<{ Bindings: CloudflareBindings }>,
+	limit: number,
+	remaining: number,
+	reset: number,
+) {
+	c.header("X-RateLimit-Limit", String(limit));
+	c.header("X-RateLimit-Remaining", String(remaining));
+	c.header("X-RateLimit-Reset", String(reset));
+}
+
+// Hono application
 const app = new Hono<{ Bindings: CloudflareBindings }>();
 
-app.post("/api/shorten", async (c) => {
-	// 1. Parse and validate request body
+app.post("/api/shorten", rateLimit(), async (c) => {
+	// Parse and validate request body
 	let body: ShortenRequestBody;
 	try {
 		body = await c.req.json();
@@ -72,18 +113,19 @@ app.post("/api/shorten", async (c) => {
 		return c.json(errorResponses.URL_INVALID_FORMAT, 400);
 	}
 
-	// 2. Check if URL already exists
 	const db = c.env.DB;
-	const selectRes = await db
+
+	// Check if URL already exists
+	const existing = await db
 		.prepare("SELECT short_code FROM urls WHERE original_url = ?")
 		.bind(url)
 		.first<Pick<URLTable, "short_code">>();
-	if (selectRes?.short_code) {
-		const shortUrl = `${getBaseUrl(c.req.url)}/${selectRes.short_code}`;
+	if (existing?.short_code) {
+		const shortUrl = `${getBaseUrl(c.req.url)}/${existing.short_code}`;
 		return c.json({ short_url: shortUrl });
 	}
 
-	// 3. Generate unique short code
+	// Generate unique short code
 	let shortCode: string;
 	do {
 		shortCode = randomCode();
@@ -94,7 +136,7 @@ app.post("/api/shorten", async (c) => {
 			.first()
 	);
 
-	// 4. Persist to DB
+	// Insert new short URL into DB
 	await db
 		.prepare("INSERT INTO urls (short_code, original_url) VALUES (?, ?)")
 		.bind(shortCode, url)
