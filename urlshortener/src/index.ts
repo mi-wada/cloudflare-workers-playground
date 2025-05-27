@@ -3,7 +3,6 @@ import { Hono } from "hono";
 const app = new Hono<{ Bindings: CloudflareBindings }>();
 
 app.post("/api/shorten", async (c) => {
-	// TODO: 実装
 	return c.json({ message: "Not implemented yet" }, 501);
 });
 
