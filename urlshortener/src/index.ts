@@ -104,9 +104,17 @@ app.post("/api/shorten", async (c) => {
 	return c.json({ short_url: shortUrl });
 });
 
-app.get(":short_url", async (c) => {
-	// TODO: 実装
-	return c.json({ message: "Not implemented yet" }, 501);
+app.get(":short_code", async (c) => {
+	const shortCode = c.req.param("short_code");
+	const db = c.env.DB;
+	const result = await db
+		.prepare("SELECT original_url FROM urls WHERE short_code = ?")
+		.bind(shortCode)
+		.first<Pick<URLTable, "original_url">>();
+	if (result?.original_url) {
+		return c.redirect(result.original_url, 308);
+	}
+	return c.json({ message: "Short URL not found" }, 404);
 });
 
 export default app;
