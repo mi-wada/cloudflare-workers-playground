@@ -1,27 +1,49 @@
+// ==========================
+// Types & Interfaces
+// ==========================
 import { Hono } from "hono";
+import type { Context, Next } from "hono";
 
+/**
+ * Error codes for API responses
+ */
 export type ErrorCode =
 	| "JSON_INVALID"
 	| "URL_REQUIRED"
 	| "URL_TOO_LONG"
 	| "URL_INVALID_FORMAT";
 
+/**
+ * Error response structure
+ */
 export type ErrorResponse = {
 	message: string;
 	code: ErrorCode;
 };
 
+/**
+ * Request body for URL shortening
+ */
 export type ShortenRequestBody = {
 	url: string;
 };
 
+/**
+ * Table structure for URLs
+ */
 export type URLTable = {
 	short_code: string;
 	original_url: string;
 	created_at: string;
 };
 
-// Error response constants
+// ==========================
+// Constants
+// ==========================
+
+/**
+ * Error response templates
+ */
 const errorResponses: Record<ErrorCode, ErrorResponse> = {
 	JSON_INVALID: { message: "Invalid JSON", code: "JSON_INVALID" },
 	URL_REQUIRED: { message: "'url' is required", code: "URL_REQUIRED" },
@@ -32,7 +54,13 @@ const errorResponses: Record<ErrorCode, ErrorResponse> = {
 	},
 };
 
-// Generate a random short code
+// ==========================
+// Utility Functions
+// ==========================
+
+/**
+ * Generate a random short code
+ */
 export function randomCode(length = 6): string {
 	const chars =
 		"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -42,13 +70,63 @@ export function randomCode(length = 6): string {
 	).join("");
 }
 
-// Generate base URL from request URL
+/**
+ * Get the base URL from a request URL
+ */
 function getBaseUrl(reqUrl: string): string {
 	return reqUrl.split("/api/shorten")[0].replace(/\/$/, "");
 }
 
-// Rate limit middleware
-import type { Context, Next } from "hono";
+/**
+ * Validate a URL string
+ */
+function isValidUrl(url: string): boolean {
+	try {
+		new URL(url);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Parse and validate the request body for URL shortening
+ */
+async function parseShortenRequestBody(
+	c: Context,
+): Promise<{ url: string } | ErrorResponse> {
+	let body: unknown;
+	try {
+		body = await c.req.json();
+	} catch {
+		return errorResponses.JSON_INVALID;
+	}
+	if (
+		typeof body !== "object" ||
+		body === null ||
+		!("url" in body) ||
+		typeof (body as { url?: unknown }).url !== "string" ||
+		((body as { url?: unknown }).url as string).length === 0
+	) {
+		return errorResponses.URL_REQUIRED;
+	}
+	const url = (body as { url: string }).url;
+	if (url.length > 4096) {
+		return errorResponses.URL_TOO_LONG;
+	}
+	if (!isValidUrl(url)) {
+		return errorResponses.URL_INVALID_FORMAT;
+	}
+	return { url };
+}
+
+// ==========================
+// Middleware
+// ==========================
+
+/**
+ * Rate limit middleware (per IP, per day)
+ */
 function rateLimit({ limit = 10, windowSec = 86400 } = {}) {
 	return async (c: Context<{ Bindings: CloudflareBindings }>, next: Next) => {
 		const ip =
@@ -77,7 +155,9 @@ function rateLimit({ limit = 10, windowSec = 86400 } = {}) {
 	};
 }
 
-// Set rate limit headers
+/**
+ * Set rate limit headers on the response
+ */
 function setRateLimitHeaders(
 	c: Context<{ Bindings: CloudflareBindings }>,
 	limit: number,
@@ -89,30 +169,21 @@ function setRateLimitHeaders(
 	c.header("X-RateLimit-Reset", String(reset));
 }
 
-// Hono application
+// ==========================
+// Application Setup & Routes
+// ==========================
+
 const app = new Hono<{ Bindings: CloudflareBindings }>();
 
+/**
+ * POST /api/shorten - Create a short URL
+ */
 app.post("/api/shorten", rateLimit(), async (c) => {
-	// Parse and validate request body
-	let body: ShortenRequestBody;
-	try {
-		body = await c.req.json();
-	} catch {
-		return c.json(errorResponses.JSON_INVALID, 400);
+	const parsed = await parseShortenRequestBody(c);
+	if ("code" in parsed) {
+		return c.json(parsed, 400);
 	}
-	const url = body.url;
-	if (typeof url !== "string" || url.length === 0) {
-		return c.json(errorResponses.URL_REQUIRED, 400);
-	}
-	if (url.length > 4096) {
-		return c.json(errorResponses.URL_TOO_LONG, 400);
-	}
-	try {
-		new URL(url);
-	} catch {
-		return c.json(errorResponses.URL_INVALID_FORMAT, 400);
-	}
-
+	const url = parsed.url;
 	const db = c.env.DB;
 
 	// Check if URL already exists
@@ -146,6 +217,9 @@ app.post("/api/shorten", rateLimit(), async (c) => {
 	return c.json({ short_url: shortUrl });
 });
 
+/**
+ * GET /:short_code - Redirect to the original URL
+ */
 app.get(":short_code", async (c) => {
 	const shortCode = c.req.param("short_code");
 	const db = c.env.DB;
