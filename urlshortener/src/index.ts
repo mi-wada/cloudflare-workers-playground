@@ -1,20 +1,29 @@
 import { Hono } from "hono";
 
-const app = new Hono<{ Bindings: CloudflareBindings }>();
-
-// 共通エラー型
-export type ErrorResponse = {
-	message: string;
-	code: ErrorCode;
-};
-
+// 型定義
 export type ErrorCode =
 	| "JSON_INVALID"
 	| "URL_REQUIRED"
 	| "URL_TOO_LONG"
 	| "URL_INVALID_FORMAT";
 
-const errorResponses = {
+export type ErrorResponse = {
+	message: string;
+	code: ErrorCode;
+};
+
+export type ShortenRequestBody = {
+	url: string;
+};
+
+export type URLTable = {
+	short_code: string;
+	original_url: string;
+	created_at: string;
+};
+
+// エラーレスポンス定数
+const errorResponses: Record<ErrorCode, ErrorResponse> = {
 	JSON_INVALID: { message: "Invalid JSON", code: "JSON_INVALID" },
 	URL_REQUIRED: { message: "'url' is required", code: "URL_REQUIRED" },
 	URL_TOO_LONG: { message: "URL length must be <= 4096", code: "URL_TOO_LONG" },
@@ -22,30 +31,25 @@ const errorResponses = {
 		message: "Invalid URL format",
 		code: "URL_INVALID_FORMAT",
 	},
-} as const;
-
-// POST /api/shorten のリクエストボディ型
-export type ShortenRequestBody = {
-	url: string;
 };
 
-// ランダムな短縮コード生成関数
+// ランダムな短縮コード生成
 export function randomCode(len = 6): string {
 	const chars =
 		"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-	let s = "";
-	for (let i = 0; i < len; i++) {
-		s += chars[Math.floor(Math.random() * chars.length)];
-	}
-	return s;
+	return Array.from(
+		{ length: len },
+		() => chars[Math.floor(Math.random() * chars.length)],
+	).join("");
 }
 
-// D1データベース urls テーブルの型
-export type URLTable = {
-	short_code: string;
-	original_url: string;
-	created_at: string; // SQLiteのDATETIMEはstringで受ける
-};
+// ベースURL生成
+function getBaseUrl(reqUrl: string): string {
+	return reqUrl.split("/api/shorten")[0].replace(/\/$/, "");
+}
+
+// Honoアプリケーション
+const app = new Hono<{ Bindings: CloudflareBindings }>();
 
 app.post("/api/shorten", async (c) => {
 	// 1. Parse and validate request body
@@ -75,22 +79,20 @@ app.post("/api/shorten", async (c) => {
 		.bind(url)
 		.first<Pick<URLTable, "short_code">>();
 	if (selectRes?.short_code) {
-		const baseUrl = c.req.url.split("/api/shorten")[0].replace(/\/$/, "");
-		const shortUrl = `${baseUrl}/${selectRes.short_code}`;
+		const shortUrl = `${getBaseUrl(c.req.url)}/${selectRes.short_code}`;
 		return c.json({ short_url: shortUrl });
 	}
 
-	// 3. Generate short code (6 random alphanum chars)
-	let shortCode = randomCode();
-	// Ensure uniqueness
-	while (
+	// 3. Generate unique short code
+	let shortCode: string;
+	do {
+		shortCode = randomCode();
+	} while (
 		await db
 			.prepare("SELECT 1 FROM urls WHERE short_code = ?")
 			.bind(shortCode)
 			.first()
-	) {
-		shortCode = randomCode();
-	}
+	);
 
 	// 4. Persist to DB
 	await db
@@ -98,8 +100,7 @@ app.post("/api/shorten", async (c) => {
 		.bind(shortCode, url)
 		.run();
 
-	const baseUrl = c.req.url.split("/api/shorten")[0].replace(/\/$/, "");
-	const shortUrl = `${baseUrl}/${shortCode}`;
+	const shortUrl = `${getBaseUrl(c.req.url)}/${shortCode}`;
 	return c.json({ short_url: shortUrl });
 });
 
