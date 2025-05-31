@@ -11,11 +11,11 @@ import { z } from "zod";
 import { rateLimit, shortCodeToOriginalURL, toShortUrl } from "./domain";
 
 /**
- * Creates and configures an MCP server for the URL shortener.
- * @param c - Hono context
- * @returns Configured MCP server instance
+ * Hono app instance for MCP endpoints.
  */
-async function getMcpServer(c: Context<{ Bindings: CloudflareBindings }>) {
+export const mcpApp = new Hono<{ Bindings: CloudflareBindings }>();
+
+mcpApp.post("/", rateLimit(), async (c) => {
 	const server = new McpServer({
 		name: "URL Shortener MCP Server",
 		version: "0.0.1",
@@ -71,26 +71,16 @@ async function getMcpServer(c: Context<{ Bindings: CloudflareBindings }>) {
 			};
 		},
 	);
-	return server;
-}
-
-/**
- * Hono app instance for MCP endpoints.
- */
-export const mcpApp = new Hono<{ Bindings: CloudflareBindings }>();
-
-mcpApp.post("/", rateLimit(), async (c) => {
 	const { req, res } = toReqRes(c.req.raw);
-	const mcpServer = await getMcpServer(c);
 	const transport: StreamableHTTPServerTransport =
 		new StreamableHTTPServerTransport({
 			sessionIdGenerator: undefined,
 		});
-	await mcpServer.connect(transport);
+	await server.connect(transport);
 	await transport.handleRequest(req, res, await c.req.json());
 	res.on("close", () => {
 		transport.close();
-		mcpServer.close();
+		server.close();
 	});
 	return toFetchResponse(res);
 });

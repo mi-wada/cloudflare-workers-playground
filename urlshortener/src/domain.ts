@@ -98,7 +98,6 @@ export function rateLimit({ limit = 100, windowSec = 86400 } = {}) {
 		const key = `rl:${ip}`;
 		const kv = c.env.KV;
 		const now = Math.floor(Date.now() / 1000);
-
 		let data = (await kv.get(key, { type: "json" })) as {
 			count: number;
 			reset: number;
@@ -107,23 +106,16 @@ export function rateLimit({ limit = 100, windowSec = 86400 } = {}) {
 			data = { count: 0, reset: now + windowSec };
 		}
 		if (data.count >= limit) {
-			setRateLimitHeaders(c, limit, 0, data.reset);
+			c.header("X-RateLimit-Limit", String(limit));
+			c.header("X-RateLimit-Remaining", String(0));
+			c.header("X-RateLimit-Reset", String(data.reset));
 			return c.json({ message: "Rate limit exceeded" }, 429);
 		}
 		data.count++;
 		await kv.put(key, JSON.stringify(data), { expiration: data.reset });
-		setRateLimitHeaders(c, limit, limit - data.count, data.reset);
+		c.header("X-RateLimit-Limit", String(limit));
+		c.header("X-RateLimit-Remaining", String(limit - data.count));
+		c.header("X-RateLimit-Reset", String(data.reset));
 		return next();
 	};
-}
-
-export function setRateLimitHeaders(
-	c: Context<{ Bindings: CloudflareBindings }>,
-	limit: number,
-	remaining: number,
-	reset: number,
-) {
-	c.header("X-RateLimit-Limit", String(limit));
-	c.header("X-RateLimit-Remaining", String(remaining));
-	c.header("X-RateLimit-Reset", String(reset));
 }
