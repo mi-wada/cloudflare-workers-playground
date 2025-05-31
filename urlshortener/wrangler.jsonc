@@ -27,7 +27,8 @@
 			"id": "5247bac3733b4c1b9f20ec27b7505de0",
 			"preview_id": "32df0ac5021a4d7f8dea020f68985e94"
 		}
-	]
+	],
+	"compatibility_flags": ["nodejs_compat"]
 	/**
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
