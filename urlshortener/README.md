@@ -1,5 +1,7 @@
 # urlshortener
 
+<https://urlshortener.test-20241005.workers.dev/>
+
 ## Development
 
 ### Prerequisites
