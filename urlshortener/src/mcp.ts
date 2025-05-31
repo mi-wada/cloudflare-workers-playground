@@ -1,3 +1,7 @@
+/**
+ * Provides the MCP (Model Context Protocol) API endpoints for the URL shortener service.
+ * @module mcp
+ */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { toFetchResponse, toReqRes } from "fetch-to-node";
@@ -6,9 +10,12 @@ import type { Context } from "hono";
 import { z } from "zod";
 import { rateLimit, shortCodeToOriginalURL, toShortUrl } from "./domain";
 
-export const getMcpServer = async (
-	c: Context<{ Bindings: CloudflareBindings }>,
-) => {
+/**
+ * Creates and configures an MCP server for the URL shortener.
+ * @param c - Hono context
+ * @returns Configured MCP server instance
+ */
+async function getMcpServer(c: Context<{ Bindings: CloudflareBindings }>) {
 	const server = new McpServer({
 		name: "URL Shortener MCP Server",
 		version: "0.0.1",
@@ -65,8 +72,11 @@ export const getMcpServer = async (
 		},
 	);
 	return server;
-};
+}
 
+/**
+ * Hono app instance for MCP endpoints.
+ */
 export const mcpApp = new Hono<{ Bindings: CloudflareBindings }>();
 
 mcpApp.post("/", rateLimit(), async (c) => {

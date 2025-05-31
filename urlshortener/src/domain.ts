@@ -3,45 +3,20 @@
 // ==========================
 import type { Context, Next } from "hono";
 
-export type ErrorCode =
-	| "JSON_INVALID"
-	| "URL_REQUIRED"
-	| "URL_TOO_LONG"
-	| "URL_INVALID_FORMAT";
-
-export type ErrorResponse = {
-	message: string;
-	code: ErrorCode;
-};
-
-export type ShortenRequestBody = {
-	url: string;
-};
-
+/**
+ * Table schema for storing short URLs.
+ */
 export type URLTable = {
 	short_code: string;
 	original_url: string;
 	created_at: string;
 };
 
-// ==========================
-// Constants
-// ==========================
-
-export const errorResponses: Record<ErrorCode, ErrorResponse> = {
-	JSON_INVALID: { message: "Invalid JSON", code: "JSON_INVALID" },
-	URL_REQUIRED: { message: "'url' is required", code: "URL_REQUIRED" },
-	URL_TOO_LONG: { message: "URL length must be <= 4096", code: "URL_TOO_LONG" },
-	URL_INVALID_FORMAT: {
-		message: "Invalid URL format",
-		code: "URL_INVALID_FORMAT",
-	},
-};
-
-// ==========================
-// Utility Functions
-// ==========================
-
+/**
+ * Generate a random alphanumeric code of the specified length.
+ * @param length - Length of the code (default: 6)
+ * @returns Random alphanumeric string
+ */
 export function randomCode(length = 6): string {
 	const chars =
 		"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -51,6 +26,11 @@ export function randomCode(length = 6): string {
 	).join("");
 }
 
+/**
+ * Check if a string is a valid URL.
+ * @param url - The string to check
+ * @returns True if valid URL, false otherwise
+ */
 export function isValidUrl(url: string): boolean {
 	try {
 		new URL(url);
@@ -60,34 +40,12 @@ export function isValidUrl(url: string): boolean {
 	}
 }
 
-export async function parseShortenRequestBody(
-	c: Context,
-): Promise<{ url: string } | ErrorResponse> {
-	let body: unknown;
-	try {
-		body = await c.req.json();
-	} catch {
-		return errorResponses.JSON_INVALID;
-	}
-	if (
-		typeof body !== "object" ||
-		body === null ||
-		!("url" in body) ||
-		typeof (body as { url?: unknown }).url !== "string" ||
-		((body as { url?: unknown }).url as string).length === 0
-	) {
-		return errorResponses.URL_REQUIRED;
-	}
-	const url = (body as { url: string }).url;
-	if (url.length > 4096) {
-		return errorResponses.URL_TOO_LONG;
-	}
-	if (!isValidUrl(url)) {
-		return errorResponses.URL_INVALID_FORMAT;
-	}
-	return { url };
-}
-
+/**
+ * Look up the original URL for a given short code in the database.
+ * @param shortCode - The short code to look up
+ * @param db - D1Database instance
+ * @returns The original URL if found, otherwise undefined
+ */
 export const shortCodeToOriginalURL = async (
 	shortCode: string,
 	db: D1Database,
@@ -99,6 +57,13 @@ export const shortCodeToOriginalURL = async (
 	return result?.original_url;
 };
 
+/**
+ * Create a new short URL for the given original URL and store it in the database.
+ * @param url - The original URL to shorten
+ * @param db - D1Database instance
+ * @param baseUrl - The base URL for the shortener
+ * @returns An object containing the new short URL
+ */
 export async function toShortUrl(
 	url: string,
 	db: D1Database,
@@ -119,6 +84,11 @@ export async function toShortUrl(
 // Middleware
 // ==========================
 
+/**
+ * Hono middleware for simple rate limiting by IP address.
+ * @param options - Optional: limit (default 100), windowSec (default 86400)
+ * @returns Middleware function
+ */
 export function rateLimit({ limit = 100, windowSec = 86400 } = {}) {
 	return async (c: Context<{ Bindings: CloudflareBindings }>, next: Next) => {
 		const ip =
