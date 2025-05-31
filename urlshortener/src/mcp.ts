@@ -4,7 +4,7 @@ import { toFetchResponse, toReqRes } from "fetch-to-node";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { z } from "zod";
-import { toShortUrl, shortCodeToOriginalURL } from "./index";
+import { toShortUrl, shortCodeToOriginalURL, rateLimit } from "./index";
 
 export const getMcpServer = async (
 	c: Context<{ Bindings: CloudflareBindings }>,
@@ -69,7 +69,7 @@ export const getMcpServer = async (
 
 export const mcpApp = new Hono<{ Bindings: CloudflareBindings }>();
 
-mcpApp.post("/", async (c) => {
+mcpApp.post("/", rateLimit(), async (c) => {
 	const { req, res } = toReqRes(c.req.raw);
 	const mcpServer = await getMcpServer(c);
 	const transport: StreamableHTTPServerTransport =

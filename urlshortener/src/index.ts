@@ -121,7 +121,7 @@ async function parseShortenRequestBody(
 /**
  * Rate limit middleware (per IP, per day)
  */
-function rateLimit({ limit = 10, windowSec = 86400 } = {}) {
+export function rateLimit({ limit = 100, windowSec = 86400 } = {}) {
 	return async (c: Context<{ Bindings: CloudflareBindings }>, next: Next) => {
 		const ip =
 			c.req.header("CF-Connecting-IP") ||
