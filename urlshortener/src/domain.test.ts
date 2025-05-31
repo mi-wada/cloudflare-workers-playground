@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-	randomCode,
 	isValidUrl,
+	randomCode,
 	shortCodeToOriginalURL,
 	toShortUrl,
 } from "./domain";
