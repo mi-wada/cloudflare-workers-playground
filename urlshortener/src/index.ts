@@ -1,12 +1,9 @@
 // ==========================
 // Types & Interfaces
 // ==========================
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { toFetchResponse, toReqRes } from "fetch-to-node";
 import { Hono } from "hono";
 import type { Context, Next } from "hono";
-import { z } from "zod";
+import { mcpApp } from "./mcp";
 
 /**
  * Error codes for API responses
@@ -72,16 +69,6 @@ export function randomCode(length = 6): string {
 		{ length },
 		() => chars[Math.floor(Math.random() * chars.length)],
 	).join("");
-}
-
-/**
- * Get the base URL from a request URL
- */
-function getBaseUrl(reqUrl: string): string {
-	if (reqUrl.includes("/mcp")) {
-		return reqUrl.split("/mcp")[0].replace(/\/$/, "");
-	}
-	return reqUrl.split("/api/shorten")[0].replace(/\/$/, "");
 }
 
 /**
@@ -183,9 +170,52 @@ function setRateLimitHeaders(
 const app = new Hono<{ Bindings: CloudflareBindings }>();
 
 /**
+ * POST /api/shorten - Create a short URL
+ */
+app.post("/api/shorten", rateLimit(), async (c) => {
+	const parsed = await parseShortenRequestBody(c);
+	if ("code" in parsed) {
+		return c.json(parsed, 400);
+	}
+	const url = parsed.url;
+	const db = c.env.DB;
+	const baseUrl = c.req.url.replace(/\/api\/shorten$/, "");
+
+	const result = await toShortUrl(url, db, baseUrl);
+	return c.json(result);
+});
+
+/**
+ * 短縮コードから元のURLを取得する関数
+ */
+export const shortCodeToOriginalURL = async (
+	shortCode: string,
+	db: D1Database,
+): Promise<string | undefined> => {
+	const result = await db
+		.prepare("SELECT original_url FROM urls WHERE short_code = ?")
+		.bind(shortCode)
+		.first<Pick<URLTable, "original_url">>();
+	return result?.original_url;
+};
+
+/**
+ * GET /:short_code - Redirect to the original URL
+ */
+app.get(":short_code", async (c) => {
+	const shortCode = c.req.param("short_code");
+	const db = c.env.DB;
+	const originalUrl = await shortCodeToOriginalURL(shortCode, db);
+	if (originalUrl) {
+		return c.redirect(originalUrl, 308);
+	}
+	return c.json({ message: "Short URL not found" }, 404);
+});
+
+/**
  * URLを短縮URLに変換する関数
  */
-async function toShortUrl(
+export async function toShortUrl(
 	url: string,
 	db: D1Database,
 	baseUrl: string,
@@ -219,153 +249,6 @@ async function toShortUrl(
 	return { short_url: `${baseUrl}/${shortCode}` };
 }
 
-/**
- * POST /api/shorten - Create a short URL
- */
-app.post("/api/shorten", rateLimit(), async (c) => {
-	const parsed = await parseShortenRequestBody(c);
-	if ("code" in parsed) {
-		return c.json(parsed, 400);
-	}
-	const url = parsed.url;
-	const db = c.env.DB;
-	const baseUrl = getBaseUrl(c.req.url);
-
-	const result = await toShortUrl(url, db, baseUrl);
-	return c.json(result);
-});
-
-/**
- * 短縮コードから元のURLを取得する関数
- */
-const shortCodeToOriginalURL = async (
-	shortCode: string,
-	db: D1Database,
-): Promise<string | undefined> => {
-	const result = await db
-		.prepare("SELECT original_url FROM urls WHERE short_code = ?")
-		.bind(shortCode)
-		.first<Pick<URLTable, "original_url">>();
-	return result?.original_url;
-};
-
-/**
- * GET /:short_code - Redirect to the original URL
- */
-app.get(":short_code", async (c) => {
-	const shortCode = c.req.param("short_code");
-	const db = c.env.DB;
-	const originalUrl = await shortCodeToOriginalURL(shortCode, db);
-	if (originalUrl) {
-		return c.redirect(originalUrl, 308);
-	}
-	return c.json({ message: "Short URL not found" }, 404);
-});
-
-export const getMcpServer = async (
-	c: Context<{ Bindings: CloudflareBindings }>,
-) => {
-	const server = new McpServer({
-		name: "URL Shortener MCP Server",
-		version: "0.0.1",
-	});
-	server.tool(
-		"expand_url",
-		"Expand a short URL to its original form",
-		{
-			short_url: z.string().describe("The short URL to expand"),
-		},
-		async ({ short_url }) => {
-			const db = c.env.DB;
-			const urlObj = new URL(short_url);
-			const shortCode = urlObj.pathname.replace(/^\/+/, "");
-			const originalUrl = await shortCodeToOriginalURL(shortCode, db);
-			if (originalUrl) {
-				return {
-					content: [
-						{
-							type: "text",
-							text: JSON.stringify({ original_url: originalUrl }),
-						},
-					],
-				};
-			}
-			return {
-				content: [
-					{
-						type: "text",
-						text: JSON.stringify({ message: "Short URL not found" }),
-					},
-				],
-			};
-		},
-	);
-	server.tool(
-		"shorten_url",
-		"Shorten a long URL",
-		{
-			url: z.string().describe("The URL to shorten"),
-		},
-		async ({ url }) => {
-			const db = c.env.DB;
-			const baseUrl = getBaseUrl(c.req.url);
-			const result = await toShortUrl(url, db, baseUrl);
-			return {
-				content: [
-					{
-						type: "text",
-						text: JSON.stringify(result),
-					},
-				],
-			};
-		},
-	);
-	return server;
-};
-
-app.post("/mcp", async (c) => {
-	const { req, res } = toReqRes(c.req.raw);
-	const mcpServer = await getMcpServer(c);
-	const transport: StreamableHTTPServerTransport =
-		new StreamableHTTPServerTransport({
-			sessionIdGenerator: undefined,
-		});
-	await mcpServer.connect(transport);
-	await transport.handleRequest(req, res, await c.req.json());
-	res.on("close", () => {
-		transport.close();
-		mcpServer.close();
-	});
-	return toFetchResponse(res);
-});
-
-app.on(["GET", "DELETE"], "/mcp", (c) => {
-	return c.json(
-		{
-			jsonrpc: "2.0",
-			error: {
-				code: -32000,
-				message: "Method not allowed.",
-			},
-			id: null,
-		},
-		405,
-	);
-});
-
-app.onError((e, c) => {
-	console.error(e.message);
-	return c.json(
-		{
-			jsonrpc: "2.0",
-			error: {
-				code: -32603,
-				message: "Internal server error",
-			},
-			id: null,
-		},
-		500,
-	);
-});
+app.route("/mcp", mcpApp);
 
 export default app;
