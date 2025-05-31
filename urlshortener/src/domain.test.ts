@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { randomCode } from "./index";
+import { randomCode } from "./domain";
+
+// ...existing code...
 
 describe("randomCode", () => {
 	it("should return a string of specified length", () => {

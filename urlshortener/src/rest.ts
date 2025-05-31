@@ -4,7 +4,7 @@ import {
 	shortCodeToOriginalURL,
 	toShortUrl,
 	parseShortenRequestBody,
-} from "./index";
+} from "./domain";
 
 export const restApp = new Hono<{ Bindings: CloudflareBindings }>();
 

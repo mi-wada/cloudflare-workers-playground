@@ -4,7 +4,7 @@ import { toFetchResponse, toReqRes } from "fetch-to-node";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { z } from "zod";
-import { rateLimit, shortCodeToOriginalURL, toShortUrl } from "./index";
+import { rateLimit, shortCodeToOriginalURL, toShortUrl } from "./domain";
 
 export const getMcpServer = async (
 	c: Context<{ Bindings: CloudflareBindings }>,
