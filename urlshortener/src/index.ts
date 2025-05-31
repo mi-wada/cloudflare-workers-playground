@@ -4,6 +4,7 @@
 import { Hono } from "hono";
 import type { Context, Next } from "hono";
 import { mcpApp } from "./mcp";
+import { restApp } from "./rest";
 
 /**
  * Error codes for API responses
@@ -74,7 +75,7 @@ export function randomCode(length = 6): string {
 /**
  * Validate a URL string
  */
-function isValidUrl(url: string): boolean {
+export function isValidUrl(url: string): boolean {
 	try {
 		new URL(url);
 		return true;
@@ -86,7 +87,7 @@ function isValidUrl(url: string): boolean {
 /**
  * Parse and validate the request body for URL shortening
  */
-async function parseShortenRequestBody(
+export async function parseShortenRequestBody(
 	c: Context,
 ): Promise<{ url: string } | ErrorResponse> {
 	let body: unknown;
@@ -112,6 +113,39 @@ async function parseShortenRequestBody(
 		return errorResponses.URL_INVALID_FORMAT;
 	}
 	return { url };
+}
+
+/**
+ * Retrieve the original URL from the database using the short code
+ */
+export const shortCodeToOriginalURL = async (
+	shortCode: string,
+	db: D1Database,
+): Promise<string | undefined> => {
+	const result = await db
+		.prepare("SELECT original_url FROM urls WHERE short_code = ?")
+		.bind(shortCode)
+		.first<Pick<URLTable, "original_url">>();
+	return result?.original_url;
+};
+
+/**
+ * Convert a URL to a short URL format
+ */
+export async function toShortUrl(
+	url: string,
+	db: D1Database,
+	baseUrl: string,
+): Promise<{ short_url: string }> {
+	const shortCode = randomCode();
+	const createdAt = new Date().toISOString();
+	await db
+		.prepare(
+			"INSERT INTO urls (short_code, original_url, created_at) VALUES (?, ?, ?)",
+		)
+		.bind(shortCode, url, createdAt)
+		.run();
+	return { short_url: `${baseUrl}/${shortCode}` };
 }
 
 // ==========================
@@ -168,87 +202,7 @@ function setRateLimitHeaders(
 // ==========================
 
 const app = new Hono<{ Bindings: CloudflareBindings }>();
-
-/**
- * POST /api/shorten - Create a short URL
- */
-app.post("/api/shorten", rateLimit(), async (c) => {
-	const parsed = await parseShortenRequestBody(c);
-	if ("code" in parsed) {
-		return c.json(parsed, 400);
-	}
-	const url = parsed.url;
-	const db = c.env.DB;
-	const baseUrl = c.req.url.replace(/\/api\/shorten$/, "");
-
-	const result = await toShortUrl(url, db, baseUrl);
-	return c.json(result);
-});
-
-/**
- * 短縮コードから元のURLを取得する関数
- */
-export const shortCodeToOriginalURL = async (
-	shortCode: string,
-	db: D1Database,
-): Promise<string | undefined> => {
-	const result = await db
-		.prepare("SELECT original_url FROM urls WHERE short_code = ?")
-		.bind(shortCode)
-		.first<Pick<URLTable, "original_url">>();
-	return result?.original_url;
-};
-
-/**
- * GET /:short_code - Redirect to the original URL
- */
-app.get(":short_code", async (c) => {
-	const shortCode = c.req.param("short_code");
-	const db = c.env.DB;
-	const originalUrl = await shortCodeToOriginalURL(shortCode, db);
-	if (originalUrl) {
-		return c.redirect(originalUrl, 308);
-	}
-	return c.json({ message: "Short URL not found" }, 404);
-});
-
-/**
- * URLを短縮URLに変換する関数
- */
-export async function toShortUrl(
-	url: string,
-	db: D1Database,
-	baseUrl: string,
-): Promise<{ short_url: string }> {
-	// 既存の短縮URLがあるか確認
-	const existing = await db
-		.prepare("SELECT short_code FROM urls WHERE original_url = ?")
-		.bind(url)
-		.first<Pick<URLTable, "short_code">>();
-	if (existing?.short_code) {
-		return { short_url: `${baseUrl}/${existing.short_code}` };
-	}
-
-	// ユニークな短縮コードを生成
-	let shortCode: string;
-	do {
-		shortCode = randomCode();
-	} while (
-		await db
-			.prepare("SELECT 1 FROM urls WHERE short_code = ?")
-			.bind(shortCode)
-			.first()
-	);
-
-	// 新しい短縮URLをDBに挿入
-	await db
-		.prepare("INSERT INTO urls (short_code, original_url) VALUES (?, ?)")
-		.bind(shortCode, url)
-		.run();
-
-	return { short_url: `${baseUrl}/${shortCode}` };
-}
-
 app.route("/mcp", mcpApp);
+app.route("/", restApp);
 
 export default app;
