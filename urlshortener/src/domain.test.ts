@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-	isValidUrl,
-	randomCode,
-	shortCodeToOriginalURL,
-	toShortUrl,
-} from "./domain";
+import { isValidUrl, randomCode } from "./domain";
 
 describe("randomCode", () => {
 	it("should return a string of specified length", () => {

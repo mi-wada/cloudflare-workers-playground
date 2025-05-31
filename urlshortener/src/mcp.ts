@@ -6,7 +6,6 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { toFetchResponse, toReqRes } from "fetch-to-node";
 import { Hono } from "hono";
-import type { Context } from "hono";
 import { z } from "zod";
 import { rateLimit, shortCodeToOriginalURL, toShortUrl } from "./domain";
 
