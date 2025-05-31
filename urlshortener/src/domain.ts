@@ -6,7 +6,7 @@ import type { Context, Next } from "hono";
 /**
  * Table schema for storing short URLs.
  */
-export type URLTable = {
+type URLTable = {
 	short_code: string;
 	original_url: string;
 	created_at: string;
