@@ -78,6 +78,9 @@ export function randomCode(length = 6): string {
  * Get the base URL from a request URL
  */
 function getBaseUrl(reqUrl: string): string {
+	if (reqUrl.includes("/mcp")) {
+		return reqUrl.split("/mcp")[0].replace(/\/$/, "");
+	}
 	return reqUrl.split("/api/shorten")[0].replace(/\/$/, "");
 }
 
@@ -180,27 +183,23 @@ function setRateLimitHeaders(
 const app = new Hono<{ Bindings: CloudflareBindings }>();
 
 /**
- * POST /api/shorten - Create a short URL
+ * URLを短縮URLに変換する関数
  */
-app.post("/api/shorten", rateLimit(), async (c) => {
-	const parsed = await parseShortenRequestBody(c);
-	if ("code" in parsed) {
-		return c.json(parsed, 400);
-	}
-	const url = parsed.url;
-	const db = c.env.DB;
-
-	// Check if URL already exists
+async function toShortUrl(
+	url: string,
+	db: D1Database,
+	baseUrl: string,
+): Promise<{ short_url: string }> {
+	// 既存の短縮URLがあるか確認
 	const existing = await db
 		.prepare("SELECT short_code FROM urls WHERE original_url = ?")
 		.bind(url)
 		.first<Pick<URLTable, "short_code">>();
 	if (existing?.short_code) {
-		const shortUrl = `${getBaseUrl(c.req.url)}/${existing.short_code}`;
-		return c.json({ short_url: shortUrl });
+		return { short_url: `${baseUrl}/${existing.short_code}` };
 	}
 
-	// Generate unique short code
+	// ユニークな短縮コードを生成
 	let shortCode: string;
 	do {
 		shortCode = randomCode();
@@ -211,14 +210,29 @@ app.post("/api/shorten", rateLimit(), async (c) => {
 			.first()
 	);
 
-	// Insert new short URL into DB
+	// 新しい短縮URLをDBに挿入
 	await db
 		.prepare("INSERT INTO urls (short_code, original_url) VALUES (?, ?)")
 		.bind(shortCode, url)
 		.run();
 
-	const shortUrl = `${getBaseUrl(c.req.url)}/${shortCode}`;
-	return c.json({ short_url: shortUrl });
+	return { short_url: `${baseUrl}/${shortCode}` };
+}
+
+/**
+ * POST /api/shorten - Create a short URL
+ */
+app.post("/api/shorten", rateLimit(), async (c) => {
+	const parsed = await parseShortenRequestBody(c);
+	if ("code" in parsed) {
+		return c.json(parsed, 400);
+	}
+	const url = parsed.url;
+	const db = c.env.DB;
+	const baseUrl = getBaseUrl(c.req.url);
+
+	const result = await toShortUrl(url, db, baseUrl);
+	return c.json(result);
 });
 
 /**
@@ -281,6 +295,26 @@ export const getMcpServer = async (
 					{
 						type: "text",
 						text: JSON.stringify({ message: "Short URL not found" }),
+					},
+				],
+			};
+		},
+	);
+	server.tool(
+		"shorten_url",
+		"Shorten a long URL",
+		{
+			url: z.string().describe("The URL to shorten"),
+		},
+		async ({ url }) => {
+			const db = c.env.DB;
+			const baseUrl = getBaseUrl(c.req.url);
+			const result = await toShortUrl(url, db, baseUrl);
+			return {
+				content: [
+					{
+						type: "text",
+						text: JSON.stringify(result),
 					},
 				],
 			};
