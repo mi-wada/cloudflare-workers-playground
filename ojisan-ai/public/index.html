@@ -38,9 +38,27 @@
         url.searchParams.set("q", q);
         window.history.replaceState(null, "", url);
         result.textContent = "変換中...";
-        const res = await fetch(`/api?q=${encodeURIComponent(q)}`);
-        const data = await res.json();
-        result.textContent = data.response || data;
+        try {
+          const res = await fetch(`/api?q=${encodeURIComponent(q)}`);
+          if (res.status === 429) {
+            // Rate limit exceeded
+            const data = await res.json();
+            const reset = res.headers.get("X-RateLimit-Reset");
+            let resetMsg = "";
+            if (reset) {
+              const resetDate = new Date(Number(reset) * 1000);
+              resetMsg = `\nリセット時刻: ${resetDate.toLocaleString()}`;
+            }
+            result.textContent =
+              (data.message || "Rate limit exceeded.") + resetMsg;
+            return;
+          }
+          const data = await res.json();
+          result.textContent = data.response || data;
+        } catch (e) {
+          result.textContent =
+            "エラーが発生しました。しばらくしてから再度お試しください。";
+        }
       }
 
       // 初期表示でqパラメータがあれば入力欄に反映し、即変換
