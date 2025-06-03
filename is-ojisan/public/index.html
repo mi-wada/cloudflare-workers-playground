@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>is-ojisan - おじさん構文判定</title>
+  </head>
+  <body>
+    <header>
+      <h1 id="heading">is-ojisan 🧑‍🦳</h1>
+    </header>
+    <main>
+      <label for="input" style="font-weight: bold">判定したい文章</label>
+      <textarea
+        id="input"
+        placeholder="判定したい文章を入力してください"
+        rows="3"
+        style="width: 100%; resize: vertical"
+        aria-label="判定したい文章を入力してください"
+      ></textarea>
+      <button id="btn" aria-label="おじさん構文判定">おじさん構文判定</button>
+      <div
+        id="result"
+        style="white-space: pre-wrap; word-break: break-all; margin-top: 1em"
+        aria-live="polite"
+      ></div>
+    </main>
+    <script type="module">
+      function getQueryParam(name) {
+        const params = new URLSearchParams(window.location.search);
+        return params.get(name);
+      }
+
+      const input = document.getElementById("input");
+      const btn = document.getElementById("btn");
+      const result = document.getElementById("result");
+
+      function renderResult(data) {
+        if (data.error) {
+          result.textContent = data.error;
+          return;
+        }
+        let html = "";
+        if (typeof data.ojisanScore === "number") {
+          html += `おじさん構文度: <b>${data.ojisanScore}</b>/100<br>`;
+        }
+        if (data.reasons) {
+          html += `理由: ${data.reasons}<br>`;
+        }
+        if (data.suggestion) {
+          html += `<br>おじさん構文を避けるには: ${data.suggestion}`;
+        }
+        result.innerHTML = html;
+      }
+
+      function setLoading(isLoading) {
+        btn.disabled = isLoading;
+        btn.textContent = isLoading ? "判定中..." : "おじさん構文判定";
+      }
+
+      async function checkOjisan(q) {
+        // 入力欄の内容でURLのqパラメータを更新
+        const url = new URL(window.location);
+        url.searchParams.set("q", q);
+        window.history.replaceState(null, "", url);
+        setLoading(true);
+        result.textContent = "判定中...";
+        try {
+          const res = await fetch(`/api?q=${encodeURIComponent(q)}`);
+          if (res.status === 429) {
+            const data = await res.json();
+            const reset = res.headers.get("X-RateLimit-Reset");
+            let resetMsg = "";
+            if (reset) {
+              const resetDate = new Date(Number(reset) * 1000);
+              resetMsg = `\nリセット時刻: ${resetDate.toLocaleString()}`;
+            }
+            result.textContent =
+              (data.message || "Rate limit exceeded.") + resetMsg;
+            setLoading(false);
+            return;
+          }
+          const data = await res.json();
+          renderResult(data);
+        } catch (e) {
+          result.textContent =
+            "エラーが発生しました。しばらくしてから再度お試しください。";
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      // 初期表示でqパラメータがあれば入力欄に反映し、即判定
+      const initialQ = getQueryParam("q");
+      if (initialQ) {
+        input.value = initialQ;
+        checkOjisan(initialQ);
+      }
+
+      btn.onclick = function () {
+        if (!input.value.trim()) {
+          result.textContent = "文章を入力してください。";
+          return;
+        }
+        checkOjisan(input.value);
+      };
+
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+          btn.click();
+        }
+      });
+    </script>
+  </body>
+</html>
