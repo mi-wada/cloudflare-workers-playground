@@ -21,7 +21,7 @@ MCP、REST APIそれぞれの使い方を説明します。
 なお、各環境のURLは以下の通りで、文中の `$URL` はこれらのURLに置き換えてください。
 
 - ローカル: `http://localhost:8787`
-- 本番: `https://amazon-url-cleaner.test-20241005.workers.dev/`
+- 本番: `https://amazon-url-cleaner.miwada.workers.dev/`
 
 ### MCP
 
