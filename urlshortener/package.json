@@ -11,14 +11,14 @@
 		"db:migrate:prod": "wrangler d1 execute urlshortener --file=./schema.sql --yes --remote"
 	},
 	"dependencies": {
-		"hono": "4.7.10",
+		"hono": "4.7.11",
 		"@modelcontextprotocol/sdk": "1.12.1",
-		"zod": "3.25.42",
+		"zod": "3.25.49",
 		"fetch-to-node": "2.1.0"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
-		"vitest": "3.1.4",
+		"vitest": "3.2.0",
 		"wrangler": "4.18.0",
 		"@types/node": "22.15.29"
 	},
