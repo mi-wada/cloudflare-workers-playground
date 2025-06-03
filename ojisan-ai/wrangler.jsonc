@@ -16,7 +16,13 @@
 	"assets": {
 		"binding": "ASSETS",
 		"directory": "./public"
-	}
+	},
+	"kv_namespaces": [
+		{
+			"binding": "KV",
+			"id": "7d4df424caea483b86ab947987e11b0b"
+		}
+	]
 	/**
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
