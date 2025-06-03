@@ -7,7 +7,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { toFetchResponse, toReqRes } from "fetch-to-node";
 import { Hono } from "hono";
 import { z } from "zod";
-import { rateLimit, shortCodeToOriginalURL, toShortUrl } from "./domain";
+import { rateLimit, shortCodeToOriginalURL, toShortUrl } from "./core";
 
 /**
  * Hono app instance for MCP endpoints.

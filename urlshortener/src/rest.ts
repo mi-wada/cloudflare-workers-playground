@@ -8,7 +8,7 @@ import {
 	rateLimit,
 	shortCodeToOriginalURL,
 	toShortUrl,
-} from "./domain";
+} from "./core";
 
 /**
  * Error codes for API responses.
