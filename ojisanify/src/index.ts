@@ -43,7 +43,7 @@ ${q}
 async function checkRateLimit(
 	env: Env,
 	request: Request,
-	limit = 10,
+	limit = 5,
 ): Promise<
 	| { allowed: true; remaining: number; reset: number; limit: number }
 	| { allowed: false; response: Response }
