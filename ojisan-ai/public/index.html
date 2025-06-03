@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ojisanify😘</title>
+  </head>
+  <body>
+    <header>
+      <h1 id="heading">Ojisanify😘</h1>
+    </header>
+    <main>
+      <textarea
+        id="input"
+        placeholder="変換したい文章を入力"
+        rows="3"
+        style="width: 100%; resize: vertical"
+      ></textarea>
+      <button id="btn">変換</button>
+      <div
+        id="result"
+        style="white-space: pre-wrap; word-break: break-all"
+      ></div>
+    </main>
+    <script>
+      function getQueryParam(name) {
+        const params = new URLSearchParams(window.location.search);
+        return params.get(name);
+      }
+
+      const input = document.getElementById("input");
+      const btn = document.getElementById("btn");
+      const result = document.getElementById("result");
+
+      async function ojisanify(q) {
+        // 入力欄の内容でURLのqパラメータを更新
+        const url = new URL(window.location);
+        url.searchParams.set("q", q);
+        window.history.replaceState(null, "", url);
+        result.textContent = "変換中...";
+        const res = await fetch(`/api?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        result.textContent = data.response || data;
+      }
+
+      // 初期表示でqパラメータがあれば入力欄に反映し、即変換
+      const initialQ = getQueryParam("q");
+      if (initialQ) {
+        input.value = initialQ;
+        ojisanify(initialQ);
+      }
+
+      btn.onclick = function () {
+        ojisanify(input.value);
+      };
+    </script>
+  </body>
+</html>

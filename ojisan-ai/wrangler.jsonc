@@ -12,6 +12,10 @@
 	},
 	"ai": {
 		"binding": "AI"
+	},
+	"assets": {
+		"binding": "ASSETS",
+		"directory": "./public"
 	}
 	/**
 	 * Smart Placement
